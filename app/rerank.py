@@ -1,4 +1,4 @@
-"""Step 6: a cross-encoder reads (question, chunk) together and gives a careful 0-1 score."""
+
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -17,5 +17,5 @@ class Reranker:
             enc = self.tokenizer([query] * len(batch), batch, padding=True, truncation=True,
                                  max_length=512, return_tensors="pt").to(self.device)
             logits = self.model(**enc).logits.view(-1)
-            out.extend(torch.sigmoid(logits).cpu().tolist())  # sigmoid -> 0..1
+            out.extend(torch.sigmoid(logits).cpu().tolist())  
         return out
