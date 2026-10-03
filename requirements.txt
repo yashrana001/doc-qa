@@ -1,0 +1,13 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+pymupdf>=1.24
+sentence-transformers>=2.7
+transformers>=4.40
+numpy>=1.26
+faiss-cpu>=1.8
+rank-bm25>=0.2.2
+psycopg2-binary>=2.9
+pgvector>=0.2.5
+pydantic>=2.6
+# torch: install separately (see README) so you can pick CPU or GPU build

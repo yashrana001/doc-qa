@@ -1,0 +1,3 @@
+{"question": "REPLACE: a question answered on one page of one of your PDFs", "gold_doc": "yourfile.pdf", "gold_pages": [3], "answerable": true, "reference_answer": "short correct answer"}
+{"question": "REPLACE: another answerable question", "gold_doc": "yourfile.pdf", "gold_pages": [7, 8], "answerable": true, "reference_answer": "short correct answer"}
+{"question": "What is the capital of Australia?", "gold_doc": null, "gold_pages": [], "answerable": false, "reference_answer": ""}

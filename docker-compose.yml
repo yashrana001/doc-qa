@@ -1,0 +1,32 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: docqa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docqa"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      VECTOR_BACKEND: pgvector
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/docqa
+      LLM_BACKEND: local          # set to "extractive" for a fast test with no LLM
+      HF_HOME: /hf
+    volumes:
+      - ./data:/srv/data
+      - hfcache:/hf
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  hfcache:
