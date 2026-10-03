@@ -1,49 +1,71 @@
 # Intelligent Document Understanding & Q&A System
 
-A RAG (Retrieval-Augmented Generation) system: upload PDFs, ask questions, get answers
-with page-level citations. If the documents don't contain the answer, it says so.
+A RAG (Retrieval-Augmented Generation) system: upload PDFs, ask questions, and get answers with page-level citations. If the documents don't contain the answer, the system says so instead of making something up.
 
 **Stack:** Python, PyTorch, Hugging Face, FastAPI, FAISS / pgvector, Docker
 
-## Pipeline
+## Features
+
+- End-to-end pipeline over multiple PDF documents: extraction, chunking, embedding, retrieval and answer generation
+- Semantic retrieval with a choice of vector store (FAISS or pgvector) and index type (Flat or HNSW)
+- Cross-encoder reranking of retrieved chunks
+- Source-level citations (document and page) on every answer
+- Refusal threshold to reduce unsupported answers
+- REST API built with FastAPI, with interactive docs at `/docs`
+- Evaluation suite: 220 curated queries, answer-quality metrics and latency benchmarks
+- Docker and docker-compose support
+
+## How it works
 
 ```
-PDF -> extract (PyMuPDF) -> chunk (page-aware) -> embed (bge) -> FAISS / pgvector
-Question -> embed -> top-k retrieval (dense or hybrid dense+BM25)
-         -> cross-encoder rerank -> confidence check -> LLM answer with [n] citations
-         -> citation validation -> JSON {answer, sources[doc, page, score]}
+PDF -> extract text -> chunk (page-aware) -> embed (bge) -> FAISS / pgvector
+Question -> embed -> retrieve top-k -> rerank -> threshold check -> answer + citations
 ```
 
-**Reducing unsupported answers (3 guards):**
-1. Top reranker score below `RERANK_THRESHOLD` -> refuse, don't call the LLM.
-2. The LLM is told to answer only from numbered context, or say it can't.
-3. Citations are validated against the chunks actually supplied.
+If the best reranked chunk scores below `RERANK_THRESHOLD`, the system refuses to answer rather than guess.
 
-## Quick start (local)
+## Project structure
+
+```
+doc-qa/
+├── app/
+│   ├── main.py        # FastAPI app
+│   ├── pipeline.py    # ties the full RAG flow together
+│   ├── ingest.py      # PDF extraction and chunking
+│   ├── embed.py       # embedding model
+│   ├── store.py       # FAISS and pgvector stores
+│   ├── retrieve.py    # semantic retrieval
+│   ├── rerank.py      # reranking
+│   ├── generate.py    # answer generation with citations
+│   └── config.py      # all settings (env vars)
+├── eval/
+│   ├── generate_questions.py
+│   ├── eval_retrieval.py
+│   ├── eval_answers.py
+│   └── dataset.jsonl  # evaluation queries
+├── data/pdfs/         # put your PDFs here
+├── scripts_ingest_folder.py
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
+```
+
+## Getting started
+
+### Run locally
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu   # or the CUDA build
-pip install -r requirements.txt
-
-# put PDFs in data/pdfs/, then:
-python scripts_ingest_folder.py data/pdfs
-
-# fast smoke test without downloading an LLM:
-LLM_BACKEND=extractive uvicorn app.main:app --reload
-# real answers (downloads Qwen2.5-1.5B-Instruct on first use):
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000/docs to try the API.
+Then open http://127.0.0.1:8000/docs to try the API. The first run downloads the Hugging Face models, so it can take a while.
 
-```bash
-curl -X POST localhost:8000/ingest -F "files=@data/pdfs/yourfile.pdf"
-curl -X POST localhost:8000/query -H "Content-Type: application/json" \
-     -d '{"question": "What is the refund policy?"}'
-```
+Add your PDFs to `data/pdfs/` and ingest them (through the API, or with `scripts_ingest_folder.py`) before asking questions.
 
-## Docker (FastAPI + Postgres/pgvector)
+### Run with Docker
 
 ```bash
 docker compose up --build
@@ -51,28 +73,43 @@ docker compose up --build
 
 ## Evaluation
 
-1. Add 5-10 PDFs to `data/pdfs/` and ingest them.
-2. Draft questions: `python -m eval.generate_questions --n 220`, then **review by hand**,
-   add ~25 unanswerable questions, and save as `eval/dataset.jsonl` (format in the sample file).
-3. Retrieval + latency across configs: `python -m eval.eval_retrieval`
+The system was evaluated on a curated set of **220 queries** (195 answerable, 25 unanswerable) over multiple PDF documents. Latency was measured on a Google Colab T4 GPU, so numbers on CPU will be higher.
+
+### Answer quality
+
+| Metric | Value |
+|---|---|
+| Refusal accuracy (unanswerable queries) | 100.0% |
+| False refusal rate (answerable queries) | 13.8% |
+| Citation accuracy (answered queries) | 88.7% |
+| Answer token-F1 vs reference | 0.442 |
+| End-to-end latency p50 / p95 | 2979 ms / 8225 ms |
+
+The refusal threshold (`RERANK_THRESHOLD`) trades off the two refusal numbers: raising it makes the system stricter, lowering it makes it answer more often. It was tuned using the refusal accuracy and false refusal rate above.
+
+### Retrieval benchmark
+
+Retrieval quality and latency were benchmarked across configurations (Flat vs HNSW index). Raw results are in `eval/results_retrieval_flat.csv` and `eval/results_retrieval_hnsw.csv`.
+
+### How to reproduce
+
+1. Add your PDFs to `data/pdfs/` and ingest them.
+2. Generate draft questions: `python -m eval.generate_questions --n 220`, then review them by hand and add unanswerable questions. Save as `eval/dataset.jsonl`.
+3. Retrieval and latency: `python -m eval.eval_retrieval`
 4. Repeat with `INDEX_TYPE=hnsw`, and with `VECTOR_BACKEND=pgvector` (re-ingest first).
-5. Answer quality: `python -m eval.eval_answers` (also try `--no-rerank`).
-6. **Tune** `RERANK_THRESHOLD` using the refusal accuracy / false refusal numbers.
-
-Paste your numbers here:
-
-| Store | Hybrid | Rerank | k | Recall@5 | MRR@10 | p50 ms | p95 ms |
-|-------|--------|--------|---|----------|--------|--------|--------|
-|       |        |        |   |          |        |        |        |
+5. Answer quality: `python -m eval.eval_answers --data eval/dataset.jsonl` (also try `--no-rerank`).
+6. Tune `RERANK_THRESHOLD` using the refusal accuracy and false refusal numbers.
 
 ## Configuration (env vars)
 
-`EMBED_MODEL`, `RERANK_MODEL`, `LLM_MODEL`, `LLM_BACKEND`, `VECTOR_BACKEND`, `INDEX_TYPE`,
-`CHUNK_WORDS`, `CHUNK_OVERLAP`, `RETRIEVE_K`, `FINAL_K`, `RERANK_THRESHOLD`, `DENSE_THRESHOLD`
-(see `app/config.py`).
+`EMBED_MODEL`, `RERANK_MODEL`, `LLM_MODEL`, `LLM_BACKEND`, `VECTOR_BACKEND`, `INDEX_TYPE`, `CHUNK_WORDS`, `CHUNK_OVERLAP`, `RETRIEVE_K`, `FINAL_K`, `RERANK_THRESHOLD`, `DENSE_THRESHOLD` (see `app/config.py`).
 
 ## Limitations
 
-- Scanned PDFs (images) need OCR first; PyMuPDF only reads real text.
-- Tables are extracted as plain text, so numbers in tables can lose structure.
-- A 1.5B local LLM is small; swap `LLM_MODEL` for a bigger one for better answers.
+- Answer quality depends on the LLM backend. The extractive backend is fastest but gives shorter answers.
+- Scanned PDFs without a text layer need OCR, which is not included.
+- Latency figures were measured on a GPU. Expect slower responses on CPU-only machines.
+- The false refusal rate (13.8%) means some answerable questions are declined. Lower `RERANK_THRESHOLD` to reduce this, at the cost of fewer correct refusals.
+
+
+ 
