@@ -1,4 +1,4 @@
-"""Glue: ingest PDFs and answer questions end to end."""
+
 import os
 import time
 
@@ -24,7 +24,7 @@ class DocQA:
         self._reranker = None
         self._generator = None
 
-    # models that are loaded only when first needed
+    
     @property
     def reranker(self):
         if self._reranker is None:
@@ -37,7 +37,7 @@ class DocQA:
             self._generator = Generator(self.cfg.llm_backend, self.cfg.llm_model)
         return self._generator
 
-    # ---------- ingestion ----------
+    
     def ingest_pdf(self, path: str, doc_id: str = None):
         doc_id = doc_id or os.path.basename(path)
         if self.store.has_doc(doc_id):
@@ -49,7 +49,7 @@ class DocQA:
             self.store.add(chunks, embs)
         return {"doc_id": doc_id, "pages": len(pages), "chunks_added": len(chunks), "skipped": False}
 
-    # ---------- retrieval ----------
+    
     def retrieve(self, question: str, retrieve_k: int, use_rerank: bool = True, hybrid: bool = False):
         """Returns (ranked_chunks, timings). Each chunk has dense_score and rerank_score."""
         timings = {}
@@ -78,14 +78,14 @@ class DocQA:
         threshold = self.cfg.rerank_threshold if use_rerank else self.cfg.dense_threshold
         return self._confidence(ranked, use_rerank) >= threshold
 
-    # ---------- full question answering ----------
+   
     def query(self, question, use_rerank=True, hybrid=False, retrieve_k=None, final_k=None):
         retrieve_k = retrieve_k or self.cfg.retrieve_k
         final_k = final_k or self.cfg.final_k
         ranked, timings = self.retrieve(question, retrieve_k, use_rerank, hybrid)
         confidence = self._confidence(ranked, use_rerank)
 
-        # Guard 1: the retrieved evidence is too weak -> refuse instead of guessing
+        
         if not ranked or not self._is_supported(ranked, use_rerank):
             timings["total_ms"] = sum(timings.values())
             return {"answer": REFUSAL, "supported": False, "confidence": confidence,
@@ -97,12 +97,12 @@ class DocQA:
         timings["generate_ms"] = _ms(t0)
         timings["total_ms"] = sum(timings.values())
 
-        # Guard 2: the model itself said it can't answer
+        
         if REFUSAL.rstrip(".").lower() in answer.lower():
             return {"answer": REFUSAL, "supported": False, "confidence": confidence,
                     "sources": [], "invalid_citations": [], "timings": timings}
 
-        # Guard 3: keep only citations that point to chunks we really provided
+        
         cited, invalid = extract_citations(answer, len(context))
         used = [context[n - 1] for n in cited] if cited else context
         sources = [{
