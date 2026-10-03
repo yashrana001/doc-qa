@@ -1,4 +1,4 @@
-"""Step 5: find candidate chunks. Dense (meaning) search, or hybrid (meaning + keywords)."""
+
 import re
 
 import numpy as np
@@ -17,7 +17,7 @@ class Retriever:
         self._bm25_chunks = []
 
     def dense(self, query: str, k: int):
-        """Returns list of (chunk, cosine_score)."""
+        
         return self.store.search(self.embedder.encode_query(query), k)
 
     def _get_bm25(self):
@@ -28,7 +28,7 @@ class Retriever:
         return self._bm25, self._bm25_chunks
 
     def hybrid(self, query: str, k: int, rrf_k: int = 60):
-        """Dense + BM25 keyword search, merged with Reciprocal Rank Fusion."""
+        
         dense_hits = self.dense(query, k)
         bm25, chunks = self._get_bm25()
         if not chunks:
@@ -45,6 +45,6 @@ class Retriever:
             chunk = chunks[int(i)]
             cid = chunk["chunk_id"]
             fused[cid] = fused.get(cid, 0.0) + 1.0 / (rrf_k + rank + 1)
-            info.setdefault(cid, (chunk, None))  # keyword-only hit: no dense score
+            info.setdefault(cid, (chunk, None))  
         best = sorted(fused, key=fused.get, reverse=True)[:k]
         return [info[cid] for cid in best]
