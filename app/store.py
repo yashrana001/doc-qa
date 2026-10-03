@@ -1,5 +1,4 @@
-"""Step 4: vector databases. FaissStore and PgVectorStore share the same methods,
-so the rest of the code doesn't care which one is used."""
+
 import json
 import os
 
@@ -32,7 +31,7 @@ class FaissStore:
             index = faiss.IndexHNSWFlat(self.dim, 32, faiss.METRIC_INNER_PRODUCT)
             index.hnsw.efSearch = 64
         else:
-            index = faiss.IndexFlatIP(self.dim)  # exact search; vectors are normalized so IP = cosine
+            index = faiss.IndexFlatIP(self.dim) 
         if len(self.embs):
             index.add(self.embs)
         return index
