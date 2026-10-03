@@ -1,4 +1,4 @@
-"""Ingest every PDF in a folder:  python scripts_ingest_folder.py data/pdfs"""
+
 import glob
 import os
 import sys
