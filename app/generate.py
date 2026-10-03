@@ -1,4 +1,4 @@
-"""Step 7: write the answer from the retrieved chunks, with [1] [2] style citations."""
+
 import re
 
 REFUSAL = "I could not find this in the documents."
@@ -47,7 +47,7 @@ class Generator:
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
     def answer(self, question: str, chunks) -> str:
-        if self.backend == "extractive":  # no LLM: just return the best chunk (handy for testing)
+        if self.backend == "extractive":  
             return f"{chunks[0]['text']} [1]"
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
