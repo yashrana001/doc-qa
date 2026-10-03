@@ -1,4 +1,4 @@
-"""Step 9: the FastAPI web service.  Run:  uvicorn app.main:app --reload"""
+
 import os
 from typing import List
 
@@ -12,7 +12,7 @@ _qa = None
 
 
 def get_qa():
-    """Load the heavy models once, on first use."""
+    
     global _qa
     if _qa is None:
         from .pipeline import DocQA
